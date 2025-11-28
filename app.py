@@ -26,11 +26,12 @@ app = FastAPI(
 )
 
 # Add CORS middleware for broader compatibility
+# Note: In production, replace "*" with specific allowed origins
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_credentials=False,  # Disabled for wildcard origins
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
@@ -509,26 +510,34 @@ async def convert_video(
     fps = max(1, min(30, fps))
     width = max(100, min(800, width))
     
-    # Validate file type
-    allowed_types = ['video/mp4', 'video/avi', 'video/quicktime', 
-                     'video/webm', 'video/x-msvideo', 'video/x-matroska']
-    content_type = file.content_type or ''
-    if not any(t in content_type for t in ['video/', 'application/octet-stream']):
+    # Validate file extension
+    allowed_extensions = {'.mp4', '.avi', '.mov', '.webm', '.mkv', '.m4v'}
+    file_ext = Path(file.filename or '').suffix.lower()
+    if file_ext not in allowed_extensions:
         raise HTTPException(
             status_code=400,
-            detail="Invalid file type. Please upload a video file."
+            detail=f"Invalid file type. Allowed types: {', '.join(allowed_extensions)}"
         )
+    
+    # Maximum file size: 100MB
+    max_file_size = 100 * 1024 * 1024
     
     # Generate unique filename
     unique_id = str(uuid.uuid4())[:8]
-    video_ext = Path(file.filename or 'video.mp4').suffix or '.mp4'
+    video_ext = file_ext or '.mp4'
     video_path = UPLOAD_DIR / f"{unique_id}{video_ext}"
     gif_filename = f"output_{unique_id}.gif"
     gif_path = OUTPUT_DIR / gif_filename
     
     try:
-        # Save uploaded video
+        # Read uploaded video with size limit
         content = await file.read()
+        if len(content) > max_file_size:
+            raise HTTPException(
+                status_code=400,
+                detail=f"File too large. Maximum size is {max_file_size // (1024*1024)}MB"
+            )
+        
         with open(video_path, 'wb') as f:
             f.write(content)
         
