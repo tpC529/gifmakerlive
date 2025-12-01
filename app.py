@@ -180,7 +180,6 @@ async def root():
             width: 100%;
             display: block;
             border-radius: 12px;
-            transform: scaleX(-1);
         }
         
         .camera-placeholder {
@@ -746,8 +745,8 @@ async def root():
                 });
                 
                 // Stop the initial stream
-                const tracks = await navigator.mediaDevices.getUserMedia({ video: true });
-                tracks.getTracks().forEach(track => track.stop());
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                stream.getTracks().forEach(track => track.stop());
                 
             } catch (err) {
                 console.error('Error getting cameras:', err);
@@ -941,7 +940,8 @@ async def root():
             
             try {
                 // Create blob from recorded chunks
-                const blob = new Blob(recordedChunks, { type: recordedChunks[0].type || 'video/webm' });
+                const mimeType = recordedChunks.length > 0 && recordedChunks[0].type ? recordedChunks[0].type : 'video/webm';
+                const blob = new Blob(recordedChunks, { type: mimeType });
                 
                 // Determine file extension
                 const ext = blob.type.includes('mp4') ? 'mp4' : 'webm';
